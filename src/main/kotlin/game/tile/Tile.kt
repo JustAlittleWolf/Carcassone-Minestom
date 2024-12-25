@@ -1,6 +1,7 @@
 package me.wolfii.game.tile
 
 import me.wolfii.game.geometry.Direction
+import me.wolfii.game.geometry.Vec2I
 import net.minestom.server.instance.block.Block
 
 sealed interface Tile {
@@ -24,5 +25,7 @@ sealed interface Tile {
     fun surfaceAt(x: Int, z: Int): Surface
 
     fun connection(direction: Direction): Surface
+
+    fun placeableMeeples(): List<Vec2I>
 }
 

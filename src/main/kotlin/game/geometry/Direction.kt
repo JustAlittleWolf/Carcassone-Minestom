@@ -1,7 +1,5 @@
 package me.wolfii.game.geometry
 
-import me.wolfii.game.geometry.Rotation
-
 enum class Direction(val vec: Vec2I) {
     NORTH(Vec2I(0, -1)),
     EAST(Vec2I(1, 0)),

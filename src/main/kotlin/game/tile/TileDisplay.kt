@@ -8,45 +8,41 @@ import net.bladehunt.kotstom.extension.times
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextColor
 import net.minestom.server.coordinate.Point
-import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.Entity
 import net.minestom.server.entity.EntityType
 import net.minestom.server.entity.Player
 import net.minestom.server.entity.metadata.display.BlockDisplayMeta
 import net.minestom.server.instance.Instance
+import net.minestom.server.instance.block.Block
 import net.minestom.server.timer.TaskSchedule
 import java.util.concurrent.CompletableFuture
 import kotlin.math.abs
 import kotlin.math.max
 
-class TileDisplay(tile: Tile, game: Game) {
+class TileDisplay(tile: Tile, instance: Instance) {
     companion object {
         private const val PLACE_Y = Game.FIELD_Y + 1.0
         private const val DISPLAY_Y = 3.0
         private const val MIN_YAW = 25.0
+
+        private const val INTERPOLATION_TICKS = 3
     }
 
     private var rotateableTile = RotateableTile(tile)
     private var isConsumed = false
     private var position: Point = Vec.ZERO
+    private var isShown = false
 
-    private val entities: List<MutableList<Entity>> = (0..<15).map { z ->
-        (0..<15).mapTo(ArrayList()) { x ->
-            Entity(EntityType.BLOCK_DISPLAY).also { entity ->
-                entity.isGlowing = true
-                entity.isAutoViewable = false
-                entity.editMeta<BlockDisplayMeta> {
-                    isHasGlowingEffect = true
-                    glowColorOverride = NamedTextColor.GREEN.value()
-                    setBlockState(tile.displayBlockAt(x, z))
-                    isHasNoGravity = true
-                    posRotInterpolationDuration = 3
-                }
-                entity.setInstance(game.instance)
-            }
+    private val center = Entity(EntityType.BLOCK_DISPLAY).apply {
+        editMeta<BlockDisplayMeta> {
+            setBlockState(Block.AIR)
+            isHasNoGravity = true
+            posRotInterpolationDuration = INTERPOLATION_TICKS
         }
+        setInstance(instance, Vec(8.5, DISPLAY_Y, 8.5))
     }
+    private val entities = ArrayList<Entity>()
 
     fun moveFromPlayerFacing(player: Player) {
         if (isConsumed) return
@@ -58,43 +54,30 @@ class TileDisplay(tile: Tile, game: Game) {
 
     private fun setPos(pos: Point) {
         position = pos
-        val startX = pos.withX { it - 0.5 }.chunkX() * 16 + 1.0
-        val startZ = pos.withZ { it - 0.5 }.chunkZ() * 16 + 1.0
-        for (z in 0..<15) {
-            for (x in 0..<15) {
-                entities[z][x].teleport(Pos(startX + x, DISPLAY_Y, startZ + z))
-            }
-        }
+        val centerX = pos.withX { it - 0.5 }.chunkX() * 16 + 8.5
+        val centerZ = pos.withZ { it - 0.5 }.chunkZ() * 16 + 8.5
+        center.teleport(center.position.withCoord(centerX, DISPLAY_Y, centerZ))
     }
 
     fun rotateRight() {
         if (isConsumed) return
         rotateableTile = rotateableTile.rotatedRight()
-        val newEntities = MutableList(15) { MutableList<Entity?>(15) { null } }
-        entities.forEachIndexed { z, list ->
-            list.forEachIndexed { x, entity ->
-                val relX = x - 7
-                val relZ = z - 7
-                newEntities[7 + relX][7 - relZ] = entity
-            }
-        }
-        for (z in 0..<15) {
-            for (x in 0..<15) {
-                entities[z][x] = newEntities[z][x] ?: throw IllegalStateException()
-            }
-        }
-        setPos(entities[0][0].position)
+        entities.forEach { it.setView(it.position.yaw + 90, 0F) }
     }
 
     fun place(instance: Instance): PlacementResult {
         if (isConsumed) return PlacementResult(false)
         val future = CompletableFuture<Unit>()
         SchedulerManager.submitTask {
-            entities.forEach { it.forEach { it.teleport(it.position.withY { it - 0.3 }) } }
-            if (entities.any { it.any { it.position.y <= PLACE_Y } }) {
-                entities.forEach {
-                    it.forEach { entity ->
-                        instance.setBlock(entity.position.withY(PLACE_Y), (entity.entityMeta as BlockDisplayMeta).blockStateId)
+            center.teleport(center.position.withY { it - 0.3 })
+            if (center.position.y <= PLACE_Y) {
+                center.passengers.forEach { entity ->
+                    val posX = center.position.chunkX() * 16 + 1
+                    val posZ = center.position.chunkZ() * 16 + 1
+                    (0..<15).forEach { z ->
+                        (0..<15).forEach { x ->
+                            instance.setBlock(posX + x, PLACE_Y.toInt(), posZ + z, rotateableTile.displayBlockAt(x, z))
+                        }
                     }
                 }
                 remove()
@@ -108,20 +91,42 @@ class TileDisplay(tile: Tile, game: Game) {
 
     fun setColor(color: TextColor) {
         val colorValue = color.value()
-        entities.forEach {
-            it.forEach { entity ->
-                entity.editMeta<BlockDisplayMeta> {
-                    if (colorValue != glowColorOverride) glowColorOverride = colorValue
+        entities.forEach { entity ->
+            entity.editMeta<BlockDisplayMeta> {
+                if (colorValue != glowColorOverride) glowColorOverride = colorValue
+            }
+        }
+    }
+
+    fun position() = position
+    fun tile() = rotateableTile
+    fun show(instance: Instance) {
+        if (isShown) return
+        isShown = true
+
+        var host = center
+        (0..<15).forEach { z ->
+            (0..<15).forEach { x ->
+                Entity(EntityType.BLOCK_DISPLAY).apply {
+                    editMeta<BlockDisplayMeta> {
+                        isHasGlowingEffect = true
+                        glowColorOverride = NamedTextColor.GREEN.value()
+                        setBlockState(rotateableTile.displayBlockAt(x, z))
+                        isHasNoGravity = true
+                        posRotInterpolationDuration = INTERPOLATION_TICKS
+                        translation = Vec(x - 7.5, 0.0, z - 7.5)
+                    }
+                    setInstance(instance)
+                }.also {
+                    entities.add(it)
+                    host.addPassenger(it)
+                    host = it
                 }
             }
         }
     }
 
-    fun isPlaced() = isConsumed
-    fun position() = position
-    fun tile() = rotateableTile
-    fun show(players: Set<Player>) = players.forEach { player -> entities.forEach { it.forEach { it.addViewer(player) } } }
-    fun remove() = entities.forEach { it.forEach { it.remove() } }
+    fun remove() = entities.reversed().forEach { it.remove() }.also { center.remove() }
 
     data class PlacementResult(val wasPlaced: Boolean, val future: CompletableFuture<Unit> = CompletableFuture.completedFuture(Unit))
 }
