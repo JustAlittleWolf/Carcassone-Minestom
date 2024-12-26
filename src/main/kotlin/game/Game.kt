@@ -291,7 +291,7 @@ class Game {
                                 tileDisplay.position(),
                                 playerColors.getValue(player),
                                 instance,
-                                getPlaceableMeeples(tileDisplay.tile(), tileDisplay.position().fieldPos(), playerColors.getValue(player))
+                                getPlaceableMeeples(tileDisplay.tile(), tileDisplay.position().fieldPos())
                             )
                             if (!meepleDisplay.hasValidPosition() || (0..<PlayerInventory.INVENTORY_SIZE).none { slot ->
                                     player.inventory.getItemStack(slot).material().namespace().value().endsWith("concrete_powder")
@@ -362,7 +362,7 @@ class Game {
         return PlacementInfo.VALID
     }
 
-    private fun getPlaceableMeeples(tile: Tile, tilePos: Vec2I, playerColor: PlayerColor): List<Vec2I> {
+    private fun getPlaceableMeeples(tile: Tile, tilePos: Vec2I): List<Vec2I> {
         return tile.placeableMeeples().filter { it ->
             val validSurface = tile.surfaceAt(it.x, it.z)
             val visited = HashSet<Pair<Vec2I, Map<Direction, Set<Vec2I>>>>()
@@ -378,7 +378,7 @@ class Game {
                     val meepleEntry = meeples[neighbourFieldPos]
                     for (reachableTile in entry.value) {
                         if (neighbouringTile.surfaceAt(reachableTile.x, reachableTile.z) != validSurface) continue
-                        if (meepleEntry != null && meepleEntry.playerColor != playerColor && neighbouringTile.surfaceAt(meepleEntry.fieldPos.x, meepleEntry.fieldPos.z) == validSurface) {
+                        if (meepleEntry != null && neighbouringTile.surfaceAt(meepleEntry.fieldPos.x, meepleEntry.fieldPos.z) == validSurface) {
                             if (neighbouringTile.reachableFrom(reachableTile.x, reachableTile.z).contains(meepleEntry.fieldPos)) return@filter false
                         }
                         toProcess.add(Pair(neighbourFieldPos, neighbouringTile.reachableNeighbourtilesFrom(reachableTile.x, reachableTile.z)))
