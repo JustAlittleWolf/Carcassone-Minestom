@@ -51,7 +51,7 @@ class Game {
         const val SPECTATING_Y = 40.0
         const val TURN_Y = 26.0
         val SPAWN = Pos(0.5, SPECTATING_Y, 0.5)
-        const val FIELD_SIZE = 100
+        const val FIELD_SIZE = 30
         const val FIELD_Y = -1
 
         private const val INITIAL_START_COUNTDOWN = 19//20 * 60
@@ -72,7 +72,7 @@ class Game {
         private val PLACED_SOUND = Sound.sound(Key.key("block.note_block.chime"), Sound.Source.RECORD, 1F, 1F)
         private val ROTATE_SOUND = Sound.sound(Key.key("entity.player.attack.sweep"), Sound.Source.PLAYER, 0.4F, 0.9F)
         private val NEXT_PLAYER_SOUND = Sound.sound(Key.key("block.note_block.harp"), Sound.Source.RECORD, 1F, 1F)
-        private val MEEPLE_PLACED_SOUND = Sound.sound(Key.key("item.goat_horn.sound.1"), Sound.Source.RECORD, 0.5F, 1.2F)
+        private val MEEPLE_PLACED_SOUND = Sound.sound(Key.key("item.goat_horn.sound.1"), Sound.Source.RECORD, 0.6F, 1.2F)
         private val RUNNING_OUT_OF_TIME_SOUND = COUNTDOWN_SOUND
         private val RUNNING_OUT_OF_TIME_TICKS = listOf(1, 2, 3, 5).map { it * 20 }
 
@@ -95,7 +95,7 @@ class Game {
                 fill(absoluteStart().withY(TURN_Y - 1), absoluteEnd().withY(TURN_Y), Block.BARRIER)
             }
         }
-        it.worldBorder = WorldBorder(16.0 * (FIELD_SIZE / 2) + 1, 0.5, 0.5, 0, 0)
+        it.worldBorder = WorldBorder(16.0 * FIELD_SIZE + 1, 0.5, 0.5, 0, 0)
         it.chunkSupplier = ChunkSupplier { a, b, c -> LightingChunk(a, b, c) }
     }
 
@@ -126,6 +126,7 @@ class Game {
             event.player.getAttribute(Attribute.SNEAKING_SPEED).baseValue = 0.05
             event.player.getAttribute(Attribute.BLOCK_INTERACTION_RANGE).baseValue = Double.MAX_VALUE
             event.player.getAttribute(Attribute.ENTITY_INTERACTION_RANGE).baseValue = Double.MAX_VALUE
+            event.player.fieldViewModifier = 0.7f
             event.player.inventory.clear()
             turnDisplay.addViewer(event.player)
             if (!hasStarted && players.size < MAX_PLAYERS) players.add(event.player)
@@ -139,6 +140,7 @@ class Game {
         }
         listen<PlayerLeaveGameEvent> { event ->
             turnDisplay.removeViewer(event.player)
+            event.player.fieldViewModifier = 0.1f
             if (players.remove(event.player) && hasStarted) nextPlayer()
         }
         listen<InstanceTickEvent> { tick() }

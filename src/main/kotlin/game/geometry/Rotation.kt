@@ -15,9 +15,9 @@ enum class Rotation {
 
     fun transform(vec2I: Vec2I): Vec2I = when (this) {
         NONE -> vec2I
-        DEG90 -> Vec2I(vec2I.z, -vec2I.x)
+        DEG90 -> Vec2I(-vec2I.z, vec2I.x)
         DEG180 -> Vec2I(-vec2I.x, -vec2I.z)
-        DEG270 -> Vec2I(-vec2I.z, vec2I.x)
+        DEG270 -> Vec2I(vec2I.z, -vec2I.x)
     }
 
     fun inverse() = when (this) {

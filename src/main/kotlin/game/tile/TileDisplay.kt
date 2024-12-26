@@ -29,7 +29,7 @@ class TileDisplay(tile: Tile, instance: Instance) {
         private const val INTERPOLATION_TICKS = 3
     }
 
-    private var rotateableTile = RotateableTile(tile)
+    private var rotateableTile = RotateableTile.from(tile)
     private var isConsumed = false
     private var position: Point = Vec.ZERO
     private var isShown = false
@@ -74,8 +74,8 @@ class TileDisplay(tile: Tile, instance: Instance) {
                 center.passengers.forEach { entity ->
                     val posX = center.position.chunkX() * 16 + 1
                     val posZ = center.position.chunkZ() * 16 + 1
-                    (0..<15).forEach { z ->
-                        (0..<15).forEach { x ->
+                    (0..Tile.MAX_INDEX).forEach { z ->
+                        (0..Tile.MAX_INDEX).forEach { x ->
                             instance.setBlock(posX + x, PLACE_Y.toInt(), posZ + z, rotateableTile.displayBlockAt(x, z))
                         }
                     }
@@ -105,8 +105,8 @@ class TileDisplay(tile: Tile, instance: Instance) {
         isShown = true
 
         var host = center
-        (0..<15).forEach { z ->
-            (0..<15).forEach { x ->
+        (0..Tile.MAX_INDEX).forEach { z ->
+            (0..Tile.MAX_INDEX).forEach { x ->
                 Entity(EntityType.BLOCK_DISPLAY).apply {
                     editMeta<BlockDisplayMeta> {
                         isHasGlowingEffect = true
