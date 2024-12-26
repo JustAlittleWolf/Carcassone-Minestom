@@ -11,6 +11,8 @@ sealed interface Tile {
         val CCFC = TileImpl("CCFC")
         val CRFR = TileImpl("CRFR")
         val CRRF = TileImpl("CRRF")
+        val FFFF_M = TileImpl("FFFF_M")
+        val FFRF_M = TileImpl("FFRF_M")
 
         const val SIZE = 15
         const val MAX_INDEX = SIZE - 1

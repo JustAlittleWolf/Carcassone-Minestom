@@ -2,7 +2,6 @@ package me.wolfii.game
 
 import me.wolfii.game.geometry.*
 import me.wolfii.game.tile.MeepleDisplay
-import me.wolfii.game.tile.RotateableTile
 import me.wolfii.game.tile.Tile
 import me.wolfii.game.tile.TileDisplay
 import net.bladehunt.kotstom.InstanceManager
@@ -56,7 +55,7 @@ class Game {
 
         private const val INITIAL_START_COUNTDOWN = 19//20 * 60
         private const val SHORTENED_START_COUNTDOWN = 20 * 5
-        private const val MIN_REQUIRED_PLAYERS = 1
+        private const val MIN_REQUIRED_PLAYERS = 2
         private const val MAX_PLAYERS = 8
         private val COUNTDOWN_NOTIFY_TIMES = setOf(1, 2, 3, 5, 10, 30).map { it * 20 }
         private val COUNTDOWN_SOUND = Sound.sound(Key.key("block.note_block.pling"), Sound.Source.RECORD, 1F, 1F)
@@ -75,6 +74,15 @@ class Game {
         private val MEEPLE_PLACED_SOUND = Sound.sound(Key.key("item.goat_horn.sound.1"), Sound.Source.RECORD, 0.6F, 1.2F)
         private val RUNNING_OUT_OF_TIME_SOUND = COUNTDOWN_SOUND
         private val RUNNING_OUT_OF_TIME_TICKS = listOf(1, 2, 3, 5).map { it * 20 }
+
+        private val TILE_SET = mapOf<Tile, Int>(
+            Tile.CCCC to 1,
+            Tile.CRFR to 4,
+            Tile.CRRF to 3,
+            Tile.CCFC to 3,
+            Tile.FFFF_M to 4,
+            Tile.FFRF_M to 2
+        )
 
         init {
             require(FIELD_SIZE % 2 == 0)
@@ -107,14 +115,22 @@ class Game {
     private var turnTime = TURN_TIME
     private var lockInteractions = false
     private var tileDisplay = TileDisplay(Tile.CRRF, instance)
-    private var meepleDisplay = MeepleDisplay(tileDisplay.tile(), Vec.ONE, PlayerColor.LIGHT_BLUE, instance)
     private var lastIteractions: MutableMap<Player, Long> = HashMap()
-    private val field: MutableField<RotateableTile?> = mutableFieldWithInitial(Vec2I(FIELD_SIZE, FIELD_SIZE)) { null }
-    private val meeples: MutableField<Pair<Entity, Vec2I>?> = mutableFieldWithInitial(Vec2I(FIELD_SIZE, FIELD_SIZE)) { null }
+    private val field: MutableField<Tile?> = mutableFieldWithInitial(Vec2I(FIELD_SIZE, FIELD_SIZE)) { null }
+    private var meepleDisplay = MeepleDisplay(Vec.ONE, PlayerColor.LIGHT_BLUE, instance, listOf())
+    private val meeples: MutableField<MeepleEntry?> = mutableFieldWithInitial(Vec2I(FIELD_SIZE, FIELD_SIZE)) { null }
     private var turn: Int = 0
     private var turnState = TurnState.PLACE_TILE
     private var availableColors = ArrayDeque(PlayerColor.entries)
     private val playerColors: MutableMap<Player, PlayerColor> = HashMap()
+    private val remainingTiles = ArrayDeque<Tile>().also { queue ->
+        TILE_SET.entries.forEach { entry ->
+            repeat(entry.value) {
+                queue.add(entry.key)
+            }
+        }
+        queue.shuffle()
+    }
 
     init {
         instance.eventNode().registerGameEvents()
@@ -235,8 +251,12 @@ class Game {
     private fun nextTile() {
         if (turn == 0) return
         tileDisplay.remove()
-        // @TODO tile set
-        tileDisplay = TileDisplay(listOf(Tile.CCCC, Tile.CCFC, Tile.CRFR, Tile.CRRF).random(), instance)
+        val tile = remainingTiles.removeFirstOrNull()
+        if(tile == null) {
+            //@TODO spielende
+            return
+        }
+        tileDisplay = TileDisplay(tile, instance)
     }
 
     private fun onRightClick(player: Player) {
@@ -267,7 +287,12 @@ class Game {
                         if (currentPlayer == player) {
                             turnState = TurnState.SELECT_MEEPLE
                             lockInteractions = false
-                            meepleDisplay = MeepleDisplay(tileDisplay.tile(), tileDisplay.position(), playerColors.getValue(player), instance)
+                            meepleDisplay = MeepleDisplay(
+                                tileDisplay.position(),
+                                playerColors.getValue(player),
+                                instance,
+                                getPlaceableMeeples(tileDisplay.tile(), tileDisplay.position().fieldPos(), playerColors.getValue(player))
+                            )
                             if (!meepleDisplay.hasValidPosition() || (0..<PlayerInventory.INVENTORY_SIZE).none { slot ->
                                     player.inventory.getItemStack(slot).material().namespace().value().endsWith("concrete_powder")
                                 }) {
@@ -301,7 +326,7 @@ class Game {
                     }
                     setInstance(this@Game.instance, selectedMeeple.first.position.add(0.0, 5.0, 0.0))
                 }
-                meeples[selectedMeeple.first.position.fieldPos()] = Pair(meepleDisplayEntity, selectedMeeple.second)
+                meeples[selectedMeeple.first.position.fieldPos()] = MeepleEntry(meepleDisplayEntity, selectedMeeple.second, playerColors.getValue(player))
                 lockInteractions = true
                 meepleDisplay.remove()
                 SchedulerManager.scheduleNextTick { meepleDisplayEntity.teleport(selectedMeeple.first.position) }
@@ -337,6 +362,33 @@ class Game {
         return PlacementInfo.VALID
     }
 
+    private fun getPlaceableMeeples(tile: Tile, tilePos: Vec2I, playerColor: PlayerColor): List<Vec2I> {
+        return tile.placeableMeeples().filter { it ->
+            val validSurface = tile.surfaceAt(it.x, it.z)
+            val visited = HashSet<Pair<Vec2I, Map<Direction, Set<Vec2I>>>>()
+            val toProcess = ArrayDeque<Pair<Vec2I, Map<Direction, Set<Vec2I>>>>(listOf(Pair(tilePos, tile.reachableNeighbourtilesFrom(it.x, it.z))))
+            while (toProcess.isNotEmpty()) {
+                val current = toProcess.removeFirst()
+                if (visited.contains(current)) continue
+                visited.add(current)
+                for (entry in current.second.entries) {
+                    val neighbourFieldPos = current.first + entry.key.vec
+                    val neighbouringTile = field[neighbourFieldPos]
+                    if (neighbouringTile == null) continue
+                    val meepleEntry = meeples[neighbourFieldPos]
+                    for (reachableTile in entry.value) {
+                        if (neighbouringTile.surfaceAt(reachableTile.x, reachableTile.z) != validSurface) continue
+                        if (meepleEntry != null && meepleEntry.playerColor != playerColor && neighbouringTile.surfaceAt(meepleEntry.fieldPos.x, meepleEntry.fieldPos.z) == validSurface) {
+                            if (neighbouringTile.reachableFrom(reachableTile.x, reachableTile.z).contains(meepleEntry.fieldPos)) return@filter false
+                        }
+                        toProcess.add(Pair(neighbourFieldPos, neighbouringTile.reachableNeighbourtilesFrom(reachableTile.x, reachableTile.z)))
+                    }
+                }
+            }
+            return@filter true
+        }
+    }
+
     private enum class PlacementInfo(val valid: Boolean, val infoColor: TextColor) {
         VALID(true, NamedTextColor.GREEN),
         POSITION_OCCUPIED(false, NamedTextColor.RED),
@@ -348,6 +400,8 @@ class Game {
         PLACE_TILE,
         SELECT_MEEPLE
     }
+
+    data class MeepleEntry(val displayEntity: Entity, val fieldPos: Vec2I, val playerColor: PlayerColor)
 
     fun hasStarted() = hasStarted
 }

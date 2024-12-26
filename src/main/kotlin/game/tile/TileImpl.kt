@@ -26,6 +26,7 @@ class TileImpl(name: String) : Tile {
                     'c' -> Surface.CITY
                     'r' -> Surface.ROAD
                     'w' -> Surface.WALL
+                    'm' -> Surface.MONASTERY
                     else -> throw error("Invalid character '$ch'")
                 }
             }.also { require(it.width == Tile.SIZE && it.height == Tile.SIZE) }
@@ -81,9 +82,7 @@ class TileImpl(name: String) : Tile {
     }
 
     override fun placeableMeeples() = meeplePositions
-
     override fun reachableFrom(x: Int, z: Int) = reachableFrom.getValue(Vec2I(x, z))
-
     override fun reachableNeighbourtilesFrom(x: Int, z: Int) = reachableNeighbourtilesFrom.getValue(Vec2I(x, z))
 
     override fun toString(): String {

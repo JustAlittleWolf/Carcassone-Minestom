@@ -18,7 +18,7 @@ import net.minestom.server.instance.block.Block
 import kotlin.math.abs
 import kotlin.math.max
 
-class MeepleDisplay(tile: Tile, pos: Point, playerColor: PlayerColor, instance: Instance) {
+class MeepleDisplay(pos: Point, playerColor: PlayerColor, instance: Instance, meeplePlacementPositions: List<Vec2I>) {
     companion object {
         private const val PLACE_Y = Game.FIELD_Y + 2.0
         private const val MIN_YAW = 45.0
@@ -30,10 +30,9 @@ class MeepleDisplay(tile: Tile, pos: Point, playerColor: PlayerColor, instance: 
     private var selectedMeeple: Pair<Entity, Vec2I>? = null
 
     init {
-        val possiblePlacementPositions = tile.placeableMeeples()
         val cornerX = pos.withX { it - 0.5 }.chunkX() * 16 + 1.0
         val cornerZ = pos.withZ { it - 0.5 }.chunkZ() * 16 + 1.0
-        meepleCandidates = possiblePlacementPositions.map { offset ->
+        meepleCandidates = meeplePlacementPositions.map { offset ->
             Entity(EntityType.BLOCK_DISPLAY).apply {
                 editMeta<BlockDisplayMeta> {
                     setBlockState(Block.AIR)

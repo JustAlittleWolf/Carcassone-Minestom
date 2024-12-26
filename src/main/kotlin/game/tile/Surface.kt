@@ -6,5 +6,6 @@ enum class Surface(val displayBlock: Block, val displayChar: Char) {
     CITY(Block.BRICKS, 'C'),
     ROAD(Block.DIRT_PATH, 'R'),
     FIELD(Block.GRASS_BLOCK, '.'),
-    WALL(Block.STONE_BRICKS, 'W')
+    WALL(Block.STONE_BRICKS, 'W'),
+    MONASTERY(Block.BROWN_TERRACOTTA, 'M')
 }

@@ -1,24 +1,5 @@
 package me.wolfii.game.geometry
 
-import kotlin.also
-import kotlin.collections.all
-import kotlin.collections.any
-import kotlin.collections.count
-import kotlin.collections.filterNot
-import kotlin.collections.flatMap
-import kotlin.collections.forEach
-import kotlin.collections.forEachIndexed
-import kotlin.collections.getOrNull
-import kotlin.collections.map
-import kotlin.collections.mapIndexed
-import kotlin.collections.mapTo
-import kotlin.collections.none
-import kotlin.collections.sumOf
-import kotlin.collections.toMutableList
-import kotlin.text.isWhitespace
-import kotlin.text.removeSuffix
-import kotlin.text.toCharArray
-
 interface Field<T> {
     val width: Int
     val height: Int
